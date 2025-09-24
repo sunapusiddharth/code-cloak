@@ -1,0 +1,86 @@
+{
+  "name": "codecloak",
+  "displayName": "CodeCloak",
+  "description": "Decrypt GitHub-authenticated encrypted code blocks",
+  "version": "1.0.0",
+  "publisher": "your-publisher",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onCommand:codecloak.decryptFile",
+    "onCommand:codecloak.encryptSelection",
+    "onCommand:codecloak.decryptSelection",
+    "onCommand:codecloak.decryptAllInWorkspace"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codecloak.decryptFile",
+        "title": "CodeCloak: Decrypt File"
+      },
+      {
+        "command": "codecloak.encryptSelection",
+        "title": "CodeCloak: Encrypt Selection"
+      },
+      {
+        "command": "codecloak.decryptSelection",
+        "title": "CodeCloak: Decrypt Selection"
+      },
+      {
+        "command": "codecloak.decryptAllInWorkspace",
+        "title": "CodeCloak: Decrypt All Encrypted Files in Workspace"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "codecloak.decryptFile",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs)$/ && resourceScheme == file"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codecloak.encryptSelection",
+          "when": "editorHasSelection && resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/"
+        },
+        {
+          "command": "codecloak.decryptSelection",
+          "when": "editorHasSelection && resourceScheme == file"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "codecloak.decryptAllInWorkspace",
+          "when": "explorerResourceIsFolder"
+        }
+      ]
+    },
+    "fileDecorations": [
+      {
+        "when": "codecloak:hasEncryptedContent",
+        "icon": "$(lock)",
+        "tooltip": "This file contains CodeCloak encrypted content"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+  "publish": "vsce publish",
+  "prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.127",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

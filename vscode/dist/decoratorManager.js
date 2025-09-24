@@ -1,0 +1,80 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DecoratorManager = void 0;
+const vscode = __importStar(require("vscode"));
+const blockDecorator_1 = require("./blockDecorator");
+class DecoratorManager {
+    static instance;
+    fileDecorationProvider;
+    constructor() {
+        this.fileDecorationProvider = new (class {
+            onDidChangeFileDecorations;
+            provideFileDecoration(uri) {
+                const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+                if (!doc)
+                    return undefined;
+                const content = doc.getText();
+                if (content.includes('// CODECLOAK') || content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]')) {
+                    return new vscode.FileDecoration('🔒', 'Contains encrypted content');
+                }
+                return undefined;
+            }
+        })();
+        vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
+    }
+    static getInstance() {
+        if (!DecoratorManager.instance) {
+            DecoratorManager.instance = new DecoratorManager();
+        }
+        return DecoratorManager.instance;
+    }
+    refreshFileDecorations(uris) {
+        if (uris) {
+            this._onDidChangeFileDecorations.fire(uris);
+        }
+        else {
+            const urisToRefresh = vscode.workspace.textDocuments.map(doc => doc.uri);
+            this._onDidChangeFileDecorations.fire(urisToRefresh);
+        }
+    }
+    _onDidChangeFileDecorations = new vscode.EventEmitter();
+    onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
+    refreshBlockDecorations(editor) {
+        (0, blockDecorator_1.decorateEncryptedBlocks)(editor);
+    }
+}
+exports.DecoratorManager = DecoratorManager;
+//# sourceMappingURL=decoratorManager.js.map
