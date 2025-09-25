@@ -23,16 +23,24 @@
     "onCommand:codecloak.smartDecryptFunction"
   ],
   "main": "./dist/extension.js",
- 
+
   "contributes": {
     "commands": [
       {
-        "command": "codecloak.decryptFile",       
+        "command": "codecloak.decryptFile",
         "title": "CodeCloak: Decrypt File"
       },
       {
-        "command": "codecloak.encryptFile",         
+        "command": "codecloak.encryptFile", 
         "title": "CodeCloak: Encrypt File"
+      },
+      {
+        "command": "codecloak.encryptSelection",
+        "title": "CodeCloak: Encrypt Selection"
+      },
+      {
+        "command": "codecloak.decryptSelection", 
+        "title": "CodeCloak: Decrypt Selection"
       },
       {
         "command": "codecloak.smartEncryptFunction",
@@ -47,23 +55,33 @@
       "editor/context": [
         {
           "command": "codecloak.encryptFile",
-          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/ && !editorHasSelection",
           "group": "codecloak@0"
         },
         {
           "command": "codecloak.decryptFile", 
-          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/ && resourceScheme == file",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/ && resourceScheme == file && !editorHasSelection",
           "group": "codecloak@0"
         },
         {
-          "command": "codecloak.smartEncryptFunction",
-          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
+          "command": "codecloak.encryptSelection",
+          "when": "editorHasSelection && resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
           "group": "codecloak@1"
         },
         {
-          "command": "codecloak.smartDecryptFunction",
-          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
+          "command": "codecloak.decryptSelection",
+          "when": "editorHasSelection && resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
           "group": "codecloak@2"
+        },
+        {
+          "command": "codecloak.smartEncryptFunction",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/ && !editorHasSelection",
+          "group": "codecloak@3"
+        },
+        {
+          "command": "codecloak.smartDecryptFunction",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/ && !editorHasSelection",
+          "group": "codecloak@4"
         }
       ]
     }

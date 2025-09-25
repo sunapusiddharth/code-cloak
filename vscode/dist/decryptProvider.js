@@ -74,7 +74,15 @@ async function decryptFileInEditor(editor) {
     edit.replace(doc.uri, fullRange, decryptedContent);
     await vscode.workspace.applyEdit(edit);
     decoratorManager_1.DecoratorManager.getInstance().refreshBlockDecorations(editor);
-    decoratorManager_1.DecoratorManager.getInstance().refreshFileDecorations(doc.uri);
+    // NO FILE DECORATION REFRESH - REMOVED
+    // const newContent = decryptedContent;
+    // const hasEncryptedContent = newContent.includes('// CODECLOAK') || 
+    //                            newContent.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || 
+    //                            newContent.includes('// CF: ');
+    // 
+    // if (!hasEncryptedContent) {
+    //   DecoratorManager.getInstance().refreshFileDecorations(doc.uri);
+    // }
     vscode.window.setStatusBarMessage('🔓 CodeCloak: File Decrypted', 3000);
 }
 //# sourceMappingURL=decryptProvider.js.map

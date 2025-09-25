@@ -9,14 +9,37 @@ export class DecoratorManager {
   private constructor() {
     this.fileDecorationProvider = new (class implements vscode.FileDecorationProvider {
       onDidChangeFileDecorations?: vscode.Event<vscode.Uri | vscode.Uri[]>;
+      
       provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-        const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
-        if (!doc) return undefined;
-        const content = doc.getText();
-        if (content.includes('// CODECLOAK') || content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || content.includes('// CF: ')) {
-          return new vscode.FileDecoration('🔒', 'Contains encrypted content');
+        try {
+          // Get the document from workspace
+          const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+          let content = '';
+          
+          if (doc) {
+            content = doc.getText();
+          } else {
+            // If document is not in memory, read from file system
+            try {
+              const fs = require('fs');
+              content = fs.readFileSync(uri.fsPath, 'utf8');
+            } catch {
+              return undefined;
+            }
+          }
+          
+          // Check for encrypted content markers
+          const hasEncryptedContent = content.includes('// CODECLOAK') || 
+                                     content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || 
+                                     content.includes('// CF: ');
+          
+          if (hasEncryptedContent) {
+            return new vscode.FileDecoration('🔒', 'Contains encrypted content');
+          }
+          return undefined;
+        } catch {
+          return undefined;
         }
-        return undefined;
       }
     })();
     vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
@@ -33,8 +56,9 @@ export class DecoratorManager {
     if (uris) {
       this._onDidChangeFileDecorations.fire(uris);
     } else {
-      const urisToRefresh = vscode.workspace.textDocuments.map(doc => doc.uri);
-      this._onDidChangeFileDecorations.fire(urisToRefresh);
+      // Fire event for all text documents to refresh their decorations
+      const allUris = vscode.workspace.textDocuments.map(doc => doc.uri);
+      this._onDidChangeFileDecorations.fire(allUris);
     }
   }
 

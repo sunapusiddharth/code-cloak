@@ -44,14 +44,35 @@ class DecoratorManager {
         this.fileDecorationProvider = new (class {
             onDidChangeFileDecorations;
             provideFileDecoration(uri) {
-                const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
-                if (!doc)
+                try {
+                    // Get the document from workspace
+                    const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+                    let content = '';
+                    if (doc) {
+                        content = doc.getText();
+                    }
+                    else {
+                        // If document is not in memory, read from file system
+                        try {
+                            const fs = require('fs');
+                            content = fs.readFileSync(uri.fsPath, 'utf8');
+                        }
+                        catch {
+                            return undefined;
+                        }
+                    }
+                    // Check for encrypted content markers
+                    const hasEncryptedContent = content.includes('// CODECLOAK') ||
+                        content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') ||
+                        content.includes('// CF: ');
+                    if (hasEncryptedContent) {
+                        return new vscode.FileDecoration('🔒', 'Contains encrypted content');
+                    }
                     return undefined;
-                const content = doc.getText();
-                if (content.includes('// CODECLOAK') || content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || content.includes('// CF: ')) {
-                    return new vscode.FileDecoration('🔒', 'Contains encrypted content');
                 }
-                return undefined;
+                catch {
+                    return undefined;
+                }
             }
         })();
         vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
@@ -67,8 +88,9 @@ class DecoratorManager {
             this._onDidChangeFileDecorations.fire(uris);
         }
         else {
-            const urisToRefresh = vscode.workspace.textDocuments.map(doc => doc.uri);
-            this._onDidChangeFileDecorations.fire(urisToRefresh);
+            // Fire event for all text documents to refresh their decorations
+            const allUris = vscode.workspace.textDocuments.map(doc => doc.uri);
+            this._onDidChangeFileDecorations.fire(allUris);
         }
     }
     onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;

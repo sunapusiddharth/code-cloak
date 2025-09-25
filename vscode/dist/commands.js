@@ -38,8 +38,77 @@ exports.decryptAllInWorkspace = decryptAllInWorkspace;
 const vscode = __importStar(require("vscode"));
 const crypto = __importStar(require("crypto"));
 const authService_1 = require("./authService");
+const decoratorManager_1 = require("./decoratorManager");
+// Language patterns - MATCH CLI EXACTLY
+const LANGUAGE_PATTERNS = {
+    js: {
+        pattern: /((?:async\s+)?(?:export\s+|function\s+|const\s+\w+\s*=\s*function\s*|(\w+)\s*=\s*\(.*?\)\s*=>))/,
+        endPattern: /}/g,
+        comment: '//',
+        multilineCommentStart: '/*',
+        multilineCommentEnd: '*/'
+    },
+    ts: {
+        pattern: /((?:async\s+)?(?:export\s+|function\s+|const\s+\w+\s*:\s*\w+\s*=\s*function\s*|(\w+)\s*=\s*\(.*?\)\s*=>))/,
+        endPattern: /}/g,
+        comment: '//',
+        multilineCommentStart: '/*',
+        multilineCommentEnd: '*/'
+    },
+    py: {
+        pattern: /(def\s+\w+\s*\([^)]*\)\s*:)/,
+        endPattern: /^\s*$/gm,
+        comment: '#'
+    },
+    go: {
+        pattern: /(func\s+\w+\s*\([^)]*\)\s*{)/,
+        endPattern: /}/g,
+        comment: '//'
+    },
+    java: {
+        pattern: /((?:public|private|protected)\s+(?:static\s+)?\w+\s+\w+\s*\([^)]*\s*\)\s*{)/,
+        endPattern: /}/g,
+        comment: '//',
+        multilineCommentStart: '/*',
+        multilineCommentEnd: '*/'
+    },
+    c: {
+        pattern: /((?:static\s+)?\w+\s+\w+\s*\([^)]*\)\s*{)/,
+        endPattern: /}/g,
+        comment: '//',
+        multilineCommentStart: '/*',
+        multilineCommentEnd: '*/'
+    },
+    cpp: {
+        pattern: /((?:static\s+)?\w+\s+\w+\s*\([^)]*\)\s*{)/,
+        endPattern: /}/g,
+        comment: '//',
+        multilineCommentStart: '/*',
+        multilineCommentEnd: '*/'
+    },
+    rust: {
+        pattern: /((?:pub\s+)?(?:async\s+)?(?:unsafe\s+)?fn\s+\w+\s*\([^)]*\)\s*(?:->\s*[^{]*)?\s*{)/,
+        endPattern: /}/g,
+        comment: '//'
+    }
+};
+// Extension mapping - MATCH CLI EXACTLY
+const EXTENSION_MAP = {
+    js: 'js',
+    ts: 'ts',
+    py: 'py',
+    go: 'go',
+    java: 'java',
+    c: 'c',
+    cpp: 'cpp',
+    cc: 'cpp',
+    h: 'c',
+    hpp: 'cpp',
+    rs: 'rust',
+    rust: 'rust'
+};
 function registerEncryptDecryptSelectionCommands(context) {
-    // Smart Encrypt Function Body
+    // Smart Encrypt Function Body - MATCH CLI LOGIC EXACTLY
     const smartEncryptCmd = vscode.commands.registerCommand('codecloak.smartEncryptFunction', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor)
@@ -47,7 +116,7 @@ function registerEncryptDecryptSelectionCommands(context) {
         try {
             const content = editor.document.getText();
             const ext = editor.document.fileName.split('.').pop()?.toLowerCase() || '';
-            const encrypted = await encryptFunctionBody(content, ext, editor.document.fileName);
+            const encrypted = await encryptFunctionsInVSCode(content, ext, editor.document.fileName);
             if (encrypted !== content) {
                 const edit = new vscode.WorkspaceEdit();
                 const fullRange = new vscode.Range(0, 0, editor.document.lineCount, 0);
@@ -63,7 +132,7 @@ function registerEncryptDecryptSelectionCommands(context) {
             vscode.window.showErrorMessage(`Smart encrypt failed: ${err.message}`);
         }
     });
-    // Smart Decrypt Function Body
+    // Smart Decrypt Function Body - MATCH CLI LOGIC EXACTLY
     const smartDecryptCmd = vscode.commands.registerCommand('codecloak.smartDecryptFunction', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor)
@@ -71,7 +140,7 @@ function registerEncryptDecryptSelectionCommands(context) {
         try {
             const content = editor.document.getText();
             const ext = editor.document.fileName.split('.').pop()?.toLowerCase() || '';
-            const decrypted = await decryptFunctionBody(content, ext, editor.document.fileName);
+            const decrypted = await decryptFunctionsInVSCode(content, ext, editor.document.fileName);
             if (decrypted !== content) {
                 const edit = new vscode.WorkspaceEdit();
                 const fullRange = new vscode.Range(0, 0, editor.document.lineCount, 0);
@@ -87,7 +156,7 @@ function registerEncryptDecryptSelectionCommands(context) {
             vscode.window.showErrorMessage(`Smart decrypt failed: ${err.message}`);
         }
     });
-    // Encrypt File (whole file encryption) - ONLY THIS ONE, NO decryptFile
+    // Encrypt File (whole file encryption)
     const encryptFileCmd = vscode.commands.registerCommand('codecloak.encryptFile', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor)
@@ -105,9 +174,255 @@ function registerEncryptDecryptSelectionCommands(context) {
             vscode.window.showErrorMessage(`File encrypt failed: ${err.message}`);
         }
     });
-    // DON'T REGISTER decryptFile here - it's already registered in extension.ts
-    // const decryptFileCmd = ... (REMOVED - AVOID DUPLICATE)
-    context.subscriptions.push(smartEncryptCmd, smartDecryptCmd, encryptFileCmd); // Removed decryptFileCmd
+    const encryptSelectionCmd = vscode.commands.registerCommand('codecloak.encryptSelection', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor)
+            return;
+        const selection = editor.selection;
+        if (selection.isEmpty) {
+            vscode.window.showWarningMessage('Select text to encrypt.');
+            return;
+        }
+        try {
+            const selectedText = editor.document.getText(selection);
+            const encryptedBlock = await encryptTextBlock(selectedText, editor.document.fileName);
+            await editor.edit(editBuilder => {
+                editBuilder.replace(selection, encryptedBlock);
+            });
+            decoratorManager_1.DecoratorManager.getInstance().refreshBlockDecorations(editor);
+            decoratorManager_1.DecoratorManager.getInstance().refreshFileDecorations(editor.document.uri);
+            vscode.window.setStatusBarMessage('🔐 Selection encrypted', 3000);
+        }
+        catch (err) {
+            vscode.window.showErrorMessage(`Encrypt failed: ${err.message}`);
+        }
+    });
+    // NEW: Decrypt Selection
+    const decryptSelectionCmd = vscode.commands.registerCommand('codecloak.decryptSelection', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor)
+            return;
+        const selection = editor.selection;
+        if (selection.isEmpty) {
+            vscode.window.showWarningMessage('Select encrypted block to decrypt.');
+            return;
+        }
+        const selectedText = editor.document.getText(selection);
+        if (!selectedText.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') && !selectedText.includes('// CF: ')) {
+            vscode.window.showWarningMessage('Selection is not a CodeCloak encrypted block.');
+            return;
+        }
+        try {
+            let decrypted;
+            if (selectedText.includes('// [CODECLOAK:ENCRYPTED_BLOCK]')) {
+                decrypted = await decryptTextBlock(selectedText, editor.document.fileName);
+            }
+            else if (selectedText.includes('// CF: ')) {
+                const encryptedBlock = selectedText.replace(/\/\/\s*CF:\s*/, '').trim();
+                const key = await deriveGitHubKeyForVSCode(editor.document.fileName);
+                decrypted = await decryptCodeBlock(encryptedBlock, key);
+            }
+            else {
+                throw new Error('Invalid encrypted format');
+            }
+            await editor.edit(editBuilder => {
+                editBuilder.replace(selection, decrypted);
+            });
+            // ONLY refresh block decorations, REMOVE file decorations
+            decoratorManager_1.DecoratorManager.getInstance().refreshBlockDecorations(editor);
+            // NO FILE DECORATION REFRESH - REMOVED
+            // await refreshFileDecoration(editor.document); // REMOVED
+            vscode.window.setStatusBarMessage('🔓 Selection decrypted', 3000);
+        }
+        catch (err) {
+            vscode.window.showErrorMessage(`Decrypt failed: ${err.message}`);
+        }
+    });
+    context.subscriptions.push(smartEncryptCmd, smartDecryptCmd, encryptFileCmd, encryptSelectionCmd, decryptSelectionCmd);
+}
+// NEW: Encrypt selected text
+async function encryptTextBlock(text, filepath) {
+    const key = await deriveGitHubKeyForVSCode(filepath);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update(text, 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    const authTag = cipher.getAuthTag().toString('base64');
+    return `// [CODECLOAK:ENCRYPTED_BLOCK]
+// IV:${iv.toString('base64')}|TAG:${authTag}
+${encrypted}
+// [CODECLOAK:END_ENCRYPTED]`;
+}
+// NEW: Decrypt selected text
+async function decryptTextBlock(block, filepath) {
+    const lines = block.split('\n');
+    if (lines.length < 3 || !lines[0].includes('// [CODECLOAK:ENCRYPTED_BLOCK]')) {
+        throw new Error('Invalid encrypted block format');
+    }
+    const metaLine = lines[1];
+    const cipherText = lines[2];
+    const match = metaLine.match(/IV:([^|]+)\|TAG:(.+)/);
+    if (!match)
+        throw new Error('Invalid metadata');
+    const iv = Buffer.from(match[1], 'base64');
+    const tag = Buffer.from(match[2], 'base64');
+    const key = await deriveGitHubKeyForVSCode(filepath);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(cipherText, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
+// ENCRYPT FUNCTIONS - MATCH CLI EXACTLY
+async function encryptFunctionsInVSCode(content, ext, filepath) {
+    // Map extension to language (like CLI)
+    const language = EXTENSION_MAP[ext];
+    if (!language || !LANGUAGE_PATTERNS[language])
+        return content;
+    const pattern = LANGUAGE_PATTERNS[language];
+    const key = await deriveGitHubKeyForVSCode(filepath);
+    const lines = content.split('\n');
+    let result = [];
+    let inFunction = false;
+    let functionStartLine = -1;
+    let braceCount = 0;
+    let functionBody = [];
+    let functionSignatureLine = null;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Handle Rust-specific syntax with enhanced detection
+        if (language === 'rust') {
+            if (isRustFunctionStart(line) && !inFunction) {
+                inFunction = true;
+                functionStartLine = i;
+                functionSignatureLine = line;
+                // Check if the function signature line contains the opening brace
+                const openBraces = (line.match(/{/g) || []).length;
+                const closeBraces = (line.match(/}/g) || []).length;
+                if (openBraces > 0) {
+                    result.push(functionSignatureLine);
+                    braceCount = openBraces - closeBraces;
+                    functionBody = [];
+                }
+                else {
+                    result.push(line);
+                    braceCount = 0;
+                    functionBody = [];
+                }
+                continue;
+            }
+        }
+        else {
+            // For other languages, use pattern matching
+            const regex = new RegExp(pattern.pattern.source, 'i');
+            if (regex.test(line) && !inFunction) {
+                inFunction = true;
+                functionStartLine = i;
+                functionSignatureLine = line;
+                const openBraces = (line.match(/{/g) || []).length;
+                const closeBraces = (line.match(/}/g) || []).length;
+                if (openBraces > 0) {
+                    result.push(functionSignatureLine);
+                    braceCount = openBraces - closeBraces;
+                    functionBody = [];
+                }
+                else {
+                    result.push(line);
+                    braceCount = 0;
+                    functionBody = [];
+                }
+                continue;
+            }
+        }
+        if (inFunction) {
+            // Count braces to find function end
+            const openBraces = (line.match(/{/g) || []).length;
+            const closeBraces = (line.match(/}/g) || []).length;
+            braceCount += openBraces - closeBraces;
+            if (braceCount === 0) {
+                // Function body is complete, encrypt the collected body
+                if (functionBody.length > 0) {
+                    const functionBodyContent = functionBody.join('\n');
+                    const encryptedBody = await encryptCodeBlock(functionBodyContent, key);
+                    // Use language-appropriate comments
+                    if (pattern.multilineCommentStart && pattern.multilineCommentEnd) {
+                        // Use multiline comments for JS/Java/C/C++
+                        result.push(`${pattern.multilineCommentStart} CF: ${encryptedBody} ${pattern.multilineCommentEnd}`);
+                    }
+                    else {
+                        // Use single-line comments for Python/Rust
+                        result.push(`${pattern.comment} CF: ${encryptedBody}`);
+                    }
+                }
+                // Add the closing brace (not encrypted)
+                result.push(line);
+                inFunction = false;
+                functionSignatureLine = null;
+                continue;
+            }
+            else {
+                // Add line to function body to be encrypted
+                functionBody.push(line);
+            }
+        }
+        else {
+            result.push(line);
+        }
+    }
+    return result.join('\n');
+}
+// DECRYPT FUNCTIONS - MATCH CLI EXACTLY
+async function decryptFunctionsInVSCode(content, ext, filepath) {
+    // Map extension to language (like CLI)
+    const language = EXTENSION_MAP[ext];
+    if (!language || !LANGUAGE_PATTERNS[language])
+        return content;
+    const key = await deriveGitHubKeyForVSCode(filepath);
+    const lines = content.split('\n');
+    let result = [];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Check for both single-line and multi-line comment formats
+        if (line.includes('// CF: ') || line.includes('/* CF: ') || line.includes('# CF: ')) {
+            let encryptedBlock = '';
+            if (line.includes('/* CF: ')) {
+                // Multi-line comment format: /* CF: ... */
+                const match = line.match(/\/\*\s*CF:\s*(.*?)\s*\*\//);
+                if (match)
+                    encryptedBlock = match[1];
+            }
+            else if (line.includes('// CF: ')) {
+                // Single-line comment format: // CF:
+                encryptedBlock = line.replace(/\/\/\s*CF:\s*/, '').trim();
+            }
+            else if (line.includes('# CF: ')) {
+                // Python comment format: # CF:
+                encryptedBlock = line.replace(/#\s*CF:\s*/, '').trim();
+            }
+            if (encryptedBlock) {
+                try {
+                    const decrypted = await decryptCodeBlock(encryptedBlock, key);
+                    result.push(decrypted);
+                    continue;
+                }
+                catch (err) {
+                    console.error(`⚠️ Failed to decrypt function: ${err.message}`);
+                    result.push(line); // Keep encrypted if decryption fails
+                }
+            }
+        }
+        result.push(line);
+    }
+    return result.join('\n');
+}
+// Helper functions
+function isRustFunctionStart(line) {
+    // More comprehensive regex to catch all Rust function patterns
+    const rustFnRegex = /\b(?:pub\s+)?(?:async\s+)?(?:unsafe\s+)?\s*fn\s+\w+\s*\([^)]*\)/;
+    if (rustFnRegex.test(line)) {
+        return true;
+    }
+    return false;
 }
 // Smart encryption logic
 async function encryptFunctionBody(content, ext, filepath) {
@@ -188,7 +503,6 @@ async function decryptFunctionBody(content, ext, filepath) {
     }
     return result.join('\n');
 }
-// File encryption/decryption
 async function encryptFileContent(content, filepath) {
     const key = await deriveGitHubKeyForVSCode(filepath);
     const iv = crypto.randomBytes(16);
@@ -242,16 +556,31 @@ async function encryptCodeBlock(content, key) {
     let encrypted = cipher.update(content, 'utf8', 'base64');
     encrypted += cipher.final('base64');
     const authTag = cipher.getAuthTag().toString('base64');
+    // Ensure no newlines in the encrypted content to prevent syntax issues
     const cleanEncrypted = encrypted.replace(/\s+/g, '');
     const cleanAuthTag = authTag.replace(/\s+/g, '');
     const cleanIV = iv.toString('base64').replace(/\s+/g, '');
     return `IV:${cleanIV}|TAG:${cleanAuthTag}|${cleanEncrypted}`;
 }
 async function decryptCodeBlock(encrypted, key) {
-    const [meta, cipherText] = encrypted.split('|');
-    const [ivPart, tagPart] = meta.split('|');
-    const iv = Buffer.from(ivPart.replace('IV:', ''), 'base64');
-    const tag = Buffer.from(tagPart.replace('TAG:', ''), 'base64');
+    // Parse: IV:...|TAG:...|encrypted_data
+    const parts = encrypted.split('|');
+    if (parts.length < 3) {
+        throw new Error(`Invalid encrypted format: expected at least 3 parts, got ${parts.length}`);
+    }
+    const ivPart = parts[0];
+    const tagPart = parts[1];
+    const cipherText = parts.slice(2).join('|'); // Handle case where cipherText contains '|'
+    if (!ivPart || typeof ivPart !== 'string' || !ivPart.includes('IV:')) {
+        throw new Error(`Invalid IV format: "${ivPart}", expected IV:...`);
+    }
+    if (!tagPart || typeof tagPart !== 'string' || !tagPart.includes('TAG:')) {
+        throw new Error(`Invalid TAG format: "${tagPart}", expected TAG:...`);
+    }
+    const ivStr = ivPart.replace('IV:', '');
+    const tagStr = tagPart.replace('TAG:', '');
+    const iv = Buffer.from(ivStr, 'base64');
+    const tag = Buffer.from(tagStr, 'base64');
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
     decipher.setAuthTag(tag);
     let decrypted = decipher.update(cipherText, 'base64', 'utf8');
@@ -386,4 +715,14 @@ async function decryptAllInWorkspace() {
     vscode.window.showInformationMessage(`🔓 Decrypted ${count} files in workspace.`);
     vscode.commands.executeCommand('workbench.files.action.refreshFilesExplorer');
 }
+// // NEW: Function to check and update file decoration
+// async function refreshFileDecoration(doc: vscode.TextDocument) {
+//   const hasEncryptedContent = doc.getText().includes('// CODECLOAK') ||
+//     doc.getText().includes('// [CODECLOAK:ENCRYPTED_BLOCK]') ||
+//     doc.getText().includes('// CF: ');
+//   // If no encrypted content, remove the file decoration
+//   if (!hasEncryptedContent) {
+//     DecoratorManager.getInstance().refreshFileDecorations(doc.uri);
+//   }
+// }
 //# sourceMappingURL=commands.js.map

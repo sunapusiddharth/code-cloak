@@ -17,7 +17,6 @@ struct User {
     address: String,
     phone: String,
 }
-
 #[derive(Serialize, Deserialize, Clone)]
 struct Product {
     id: Uuid,

@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { decryptWholeFile, decryptBlocks, deriveGitHubKeyForVSCode } from './decryptUtils';
 import { DecoratorManager } from './decoratorManager';
 
+
+
 export async function decryptFileInEditor(editor: vscode.TextEditor) {
   const doc = editor.document;
   let content = doc.getText();
@@ -45,7 +47,16 @@ export async function decryptFileInEditor(editor: vscode.TextEditor) {
   await vscode.workspace.applyEdit(edit);
 
   DecoratorManager.getInstance().refreshBlockDecorations(editor);
-  DecoratorManager.getInstance().refreshFileDecorations(doc.uri);
+  
+  // NO FILE DECORATION REFRESH - REMOVED
+  // const newContent = decryptedContent;
+  // const hasEncryptedContent = newContent.includes('// CODECLOAK') || 
+  //                            newContent.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || 
+  //                            newContent.includes('// CF: ');
+  // 
+  // if (!hasEncryptedContent) {
+  //   DecoratorManager.getInstance().refreshFileDecorations(doc.uri);
+  // }
 
   vscode.window.setStatusBarMessage('🔓 CodeCloak: File Decrypted', 3000);
 }
