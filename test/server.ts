@@ -110,7 +110,6 @@ app.delete('/orders/:id', (req, res) => {
 app.listen(3000, () => console.log('🚀 TypeScript server running on http://localhost:3000'));
 
 
-
-function abcd(){
-/* CF: IV:gQS2/QuJVGeX64u7X2XsgQ==|TAG:XibCQe2ODUMij1xRq8Yn9w==|acn808k6AOod8p6IYjcNpGTZhgIF4Q== */
+function add(){
+  console.log("hel;lo")
 }

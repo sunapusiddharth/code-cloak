@@ -39,6 +39,7 @@ const blockDecorator_1 = require("./blockDecorator");
 class DecoratorManager {
     static instance;
     fileDecorationProvider;
+    _onDidChangeFileDecorations = new vscode.EventEmitter();
     constructor() {
         this.fileDecorationProvider = new (class {
             onDidChangeFileDecorations;
@@ -47,7 +48,7 @@ class DecoratorManager {
                 if (!doc)
                     return undefined;
                 const content = doc.getText();
-                if (content.includes('// CODECLOAK') || content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]')) {
+                if (content.includes('// CODECLOAK') || content.includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || content.includes('// CF: ')) {
                     return new vscode.FileDecoration('🔒', 'Contains encrypted content');
                 }
                 return undefined;
@@ -70,7 +71,6 @@ class DecoratorManager {
             this._onDidChangeFileDecorations.fire(urisToRefresh);
         }
     }
-    _onDidChangeFileDecorations = new vscode.EventEmitter();
     onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
     refreshBlockDecorations(editor) {
         (0, blockDecorator_1.decorateEncryptedBlocks)(editor);

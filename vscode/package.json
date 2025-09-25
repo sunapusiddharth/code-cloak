@@ -1,86 +1,81 @@
 {
   "name": "codecloak",
   "displayName": "CodeCloak",
-  "description": "Decrypt GitHub-authenticated encrypted code blocks",
+  "description": "Selective code encryption for GitHub",
   "version": "1.0.0",
   "publisher": "your-publisher",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Other"],
   "activationEvents": [
     "onLanguage:javascript",
     "onLanguage:typescript",
+    "onLanguage:python", 
+    "onLanguage:go",
+    "onLanguage:rust",
+    "onLanguage:java",
+    "onLanguage:cpp",
+    "onLanguage:c",
     "onCommand:codecloak.decryptFile",
-    "onCommand:codecloak.encryptSelection",
-    "onCommand:codecloak.decryptSelection",
-    "onCommand:codecloak.decryptAllInWorkspace"
+    "onCommand:codecloak.encryptFile",
+    "onCommand:codecloak.smartEncryptFunction",
+    "onCommand:codecloak.smartDecryptFunction"
   ],
   "main": "./dist/extension.js",
+ 
   "contributes": {
     "commands": [
       {
-        "command": "codecloak.decryptFile",
+        "command": "codecloak.decryptFile",       
         "title": "CodeCloak: Decrypt File"
       },
       {
-        "command": "codecloak.encryptSelection",
-        "title": "CodeCloak: Encrypt Selection"
+        "command": "codecloak.encryptFile",         
+        "title": "CodeCloak: Encrypt File"
       },
       {
-        "command": "codecloak.decryptSelection",
-        "title": "CodeCloak: Decrypt Selection"
+        "command": "codecloak.smartEncryptFunction",
+        "title": "CodeCloak: Smart Encrypt Function Body"
       },
       {
-        "command": "codecloak.decryptAllInWorkspace",
-        "title": "CodeCloak: Decrypt All Encrypted Files in Workspace"
+        "command": "codecloak.smartDecryptFunction",
+        "title": "CodeCloak: Smart Decrypt Function Body"
       }
     ],
     "menus": {
-      "editor/title": [
-        {
-          "command": "codecloak.decryptFile",
-          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs)$/ && resourceScheme == file"
-        }
-      ],
       "editor/context": [
         {
-          "command": "codecloak.encryptSelection",
-          "when": "editorHasSelection && resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/"
+          "command": "codecloak.encryptFile",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
+          "group": "codecloak@0"
         },
         {
-          "command": "codecloak.decryptSelection",
-          "when": "editorHasSelection && resourceScheme == file"
-        }
-      ],
-      "explorer/context": [
+          "command": "codecloak.decryptFile", 
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/ && resourceScheme == file",
+          "group": "codecloak@0"
+        },
         {
-          "command": "codecloak.decryptAllInWorkspace",
-          "when": "explorerResourceIsFolder"
+          "command": "codecloak.smartEncryptFunction",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
+          "group": "codecloak@1"
+        },
+        {
+          "command": "codecloak.smartDecryptFunction",
+          "when": "resourceExtname =~ /\\.(js|ts|py|go|rs|java|c|cpp)$/",
+          "group": "codecloak@2"
         }
       ]
-    },
-    "fileDecorations": [
-      {
-        "when": "codecloak:hasEncryptedContent",
-        "icon": "$(lock)",
-        "tooltip": "This file contains CodeCloak encrypted content"
-      }
-    ]
+    }
   },
+
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "package": "vsce package",
-  "publish": "vsce publish",
-  "prepublish": "npm run compile"
+    "compile": "tsc -p ./"
   },
   "devDependencies": {
-    "@types/node": "^18.19.127",
     "@types/vscode": "^1.85.0",
+    "@types/node": "18.x",
     "typescript": "^5.3.0"
   }
 }

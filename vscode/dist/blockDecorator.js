@@ -39,6 +39,7 @@ function decorateEncryptedBlocks(editor) {
     const doc = editor.document;
     const decorations = [];
     const lines = doc.getText().split('\n');
+    // Get extension to determine icon path
     const extensionUri = vscode.extensions.getExtension('your-publisher.codecloak').extensionUri;
     const decorationType = vscode.window.createTextEditorDecorationType({
         light: {
@@ -51,7 +52,9 @@ function decorateEncryptedBlocks(editor) {
         }
     });
     for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === '// [CODECLOAK:ENCRYPTED_BLOCK]') {
+        const line = lines[i];
+        // Support both old format and new smart format
+        if (line.trim() === '// [CODECLOAK:ENCRYPTED_BLOCK]' || line.includes('// CF: ')) {
             const range = new vscode.Range(i, 0, i, 0);
             decorations.push({ range });
         }

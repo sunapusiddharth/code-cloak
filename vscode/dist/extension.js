@@ -36,31 +36,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
-const decryptProvider_1 = require("./decryptProvider");
+const commands_1 = require("./commands");
+const decryptProvider_1 = require("./decryptProvider"); // Keep this!
 const authService_1 = require("./authService");
 const statusBar_1 = require("./statusBar");
-const commands_1 = require("./commands");
 const commands_2 = require("./commands");
-const decoratorManager_1 = require("./decoratorManager");
 async function activate(context) {
-    console.log('CodeCloak activated');
+    console.log('CodeCloak extension activated');
     const loginStatus = await (0, authService_1.checkGitHubLogin)();
     (0, statusBar_1.activateStatusBar)(context, loginStatus);
-    // Register commands
+    // Register main file decrypt command (keep this!)
     const decryptFileCmd = vscode.commands.registerCommand('codecloak.decryptFile', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor)
             return;
         await (0, decryptProvider_1.decryptFileInEditor)(editor);
     });
+    // Register all smart commands (from commands.ts)
     (0, commands_1.registerEncryptDecryptSelectionCommands)(context);
+    // Register decrypt all command
     const decryptAllCmd = vscode.commands.registerCommand('codecloak.decryptAllInWorkspace', commands_2.decryptAllInWorkspace);
     context.subscriptions.push(decryptFileCmd, decryptAllCmd);
     // Auto-decorate on open
     vscode.workspace.onDidOpenTextDocument(async (doc) => {
         const editor = vscode.window.visibleTextEditors.find(e => e.document === doc);
-        if (editor && (doc.getText().includes('// CODECLOAK') || doc.getText().includes('// [CODECLOAK:ENCRYPTED_BLOCK]'))) {
-            decoratorManager_1.DecoratorManager.getInstance().refreshBlockDecorations(editor);
+        if (editor && (doc.getText().includes('// CODECLOAK') || doc.getText().includes('// [CODECLOAK:ENCRYPTED_BLOCK]') || doc.getText().includes('// CF: '))) {
+            // Add decorator refresh here if needed
         }
     });
 }
